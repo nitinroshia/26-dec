@@ -1,5 +1,21 @@
 # Pellacia Press - Phase 06 Distribution Backend Development Guide
 
+## Table of Contents
+1. [Project Overview](#project-overview)
+2. [Quick Start for Claude](#quick-start-for-claude)
+3. [Architecture Overview](#architecture-overview)
+4. [Implementation Phases](#implementation-phases)
+5. [File Structure](#file-structure)
+6. [Dependencies](#dependencies)
+7. [Platform Integrations](#platform-integrations)
+8. [Database Schema](#database-schema)
+9. [CLI Interface Specification](#cli-interface-specification)
+10. [Error Handling & Testing](#error-handling--testing)
+11. [Integration Points](#integration-points)
+12. [Implementation Checklist](#implementation-checklist)
+
+---
+
 ## Project Overview
 
 Pellacia Press is an AI-powered video automation platform that transforms raw articles into published video content across multiple social media platforms. Phase 06 focuses on the distribution layer - automated posting, scheduling, and analytics tracking for 6 social media platforms.
@@ -18,6 +34,45 @@ Pellacia Press is an AI-powered video automation platform that transforms raw ar
 - Controlled analytics fetching to avoid rate limit violations
 - Secure credential management
 - PostgreSQL database for job queue and analytics storage
+
+### Business Constraints
+- **Free VPN Usage**: Must work with free VPNs (Netherlands, Japan, Romania locations) for TikTok access
+- **Browser Automation Fallback**: Selenium/Playwright as primary fallback when APIs fail
+- **Breaking News Priority**: System must interrupt normal operations for urgent content
+- **Conservative Posting**: 30-45 minute minimum intervals to avoid platform bans
+- **Instant Alerts**: Telegram notifications for immediate failure awareness
+
+---
+
+## Quick Start for Claude
+
+### Immediate Action Items
+1. **Set up project structure** using the File Structure section below
+2. **Install dependencies** from the Dependencies section
+3. **Create database schema** from Database Schema section
+4. **Implement core CLI framework** (`main.py`, `src/cli/commands.py`)
+5. **Start with TikTok VPN integration** (highest complexity)
+
+### Key Implementation Decisions Already Made
+- **Python 3.10+** with asyncio
+- **PostgreSQL** for data persistence
+- **Free VPNs with redundancy** for TikTok (don't use paid proxies)
+- **Browser automation as primary fallback** (not just last resort)
+- **Telegram alerts** for instant notifications
+- **Breaking news interruption** of normal posting queue
+
+### Development Approach
+- **Start with infrastructure components** (VPN, browser automation, alerts)
+- **Build platform integrations** one by one (TikTok first due to complexity)
+- **Add resilience features** (retry logic, fallbacks) as you build
+- **Test early and often** - each platform integration needs immediate testing
+
+### Success Criteria
+- **TikTok uploads work** via VPN + browser automation fallback
+- **All 6 platforms can be posted to** simultaneously
+- **Breaking news interrupts** normal queue operations
+- **Telegram alerts fire** immediately on failures
+- **30-minute spacing** enforced between posts
 
 ## Architecture Overview
 
@@ -47,76 +102,159 @@ Analytics Collector → Platform APIs → Database → REST API → Phase 03 Das
 
 ## Implementation Phases
 
-### Phase 1: Basic Upload Infrastructure
-**Goal**: Enable immediate video uploading to all 6 social media platforms
+### 🚀 Phase 1: Infrastructure Foundation (Week 1-2) - CRITICAL FIRST
+**Goal**: Build the resilient infrastructure layer that handles VPNs, browser automation, and monitoring
+
 **Deliverables**:
-- Platform authentication setup (OAuth flows) for all platforms
-- Complete platform upload modules for YouTube, Instagram, TikTok, Twitter/X, LinkedIn, Facebook
-- Basic CLI commands for single and multi-platform uploads
-- Error handling with retry logic
-- Rate limit monitoring and management
+- ✅ Free VPN manager with 6 connection redundancy (NL/JP/RO)
+- ✅ Browser automation framework (Playwright) with session persistence
+- ✅ Telegram alert system for instant notifications
+- ✅ Health monitoring dashboard
+- ✅ Basic CLI framework and configuration
 
-**Key Files**:
-- `src/platforms/youtube.py` - YouTube upload logic
-- `src/platforms/instagram.py` - Instagram upload logic
-- `src/platforms/tiktok.py` - TikTok upload logic
-- `src/platforms/twitter.py` - Twitter/X upload logic
-- `src/platforms/linkedin.py` - LinkedIn upload logic
-- `src/platforms/facebook.py` - Facebook upload logic
-- `src/core/uploader.py` - Main upload orchestration
-- `src/core/retry.py` - Error handling and retry logic
-- `main.py` - CLI entry point
+**Key Files to Create**:
+- `src/infrastructure/free_vpn_manager.py` - VPN connection logic
+- `src/fallback/browser_uploader.py` - Browser automation
+- `src/fallback/session_manager.py` - Browser session persistence
+- `src/monitoring/alert_system.py` - Telegram alerts
+- `src/monitoring/health_dashboard.py` - Terminal monitoring UI
+- `main.py` - Basic CLI entry point
+- `src/core/config.py` - Configuration management
 
-### Phase 2: Multi-Platform Upload & Scheduling
-**Goal**: Support simultaneous posting and future scheduling across all platforms
+**Testing Commands**:
+```bash
+# Test VPN connectivity
+pellacia-dist test vpn
+
+# Test browser automation setup
+pellacia-dist test browser --platform tiktok
+
+# Test alerts
+pellacia-dist test alerts
+```
+
+### 📤 Phase 2: Core Upload Engine (Week 2-4) - START HERE
+**Goal**: Build the upload orchestration system with cascading fallbacks
+
 **Deliverables**:
-- Batch upload functionality to all 6 platforms concurrently
-- Platform selection and validation
-- Upload status tracking and reporting
-- Job queue system with persistence for scheduled posts
-- Time zone support and conflict resolution
-- CLI commands for scheduling operations
+- ✅ Resilient uploader with 5-layer fallback strategy
+- ✅ Platform authentication for all 6 platforms
+- ✅ TikTok VPN integration with browser fallback
+- ✅ Multi-platform concurrent uploads
+- ✅ Comprehensive error handling and retry logic
 
-**Key Features**:
-- Command: `upload --platforms all --file video.mp4` (supports all 6 platforms)
-- Support for 5-6 posts/day per platform
-- Upload confirmation and status reporting
-- Queue management (view, cancel, reschedule scheduled posts)
+**Key Files to Create**:
+- `src/core/resilient_uploader.py` - Main upload orchestration
+- `src/core/retry.py` - Error handling logic
+- `src/platforms/tiktok.py` - TikTok with VPN support
+- `src/platforms/youtube.py` - YouTube upload
+- `src/platforms/instagram.py` - Instagram upload
+- `src/platforms/twitter.py` - Twitter upload
+- `src/platforms/linkedin.py` - LinkedIn upload
+- `src/platforms/facebook.py` - Facebook upload
 
-**Key Files**:
-- `src/scheduling/queue.py` - Job queue management
+**Testing Commands**:
+```bash
+# Test single platform upload
+pellacia-dist upload --platform tiktok --file test.mp4 --test
+
+# Test multi-platform upload
+pellacia-dist upload --platforms youtube,tiktok --file test.mp4 --test
+
+# Test VPN fallback for TikTok
+pellacia-dist upload --platform tiktok --file test.mp4 --force-vpn-fallback
+```
+
+### ⏰ Phase 3: Scheduling & Priority System (Week 4-5)
+**Goal**: Add intelligent queuing with breaking news support
+
+**Deliverables**:
+- ✅ Priority queue with breaking news interruption
+- ✅ Posting throttler (30-45 min intervals)
+- ✅ APScheduler integration for timed posts
+- ✅ Queue persistence and recovery
+
+**Key Files to Create**:
+- `src/scheduling/priority_queue.py` - Priority management
+- `src/scheduling/posting_throttler.py` - Rate limiting
 - `src/scheduling/scheduler.py` - APScheduler integration
-- Database tables for scheduled posts
+- Database migrations for queue tables
 
-### Phase 3: Analytics System
-**Goal**: Implement comprehensive analytics tracking for all platforms with rate limit controls
+**Testing Commands**:
+```bash
+# Test breaking news priority
+pellacia-dist upload --file breaking.mp4 --platforms all --priority breaking
+
+# Test normal scheduling
+pellacia-dist schedule --platforms all --file news.mp4 --at "2024-12-27 14:00"
+
+# View queue status
+pellacia-dist queue status
+```
+
+### 📊 Phase 4: Analytics System (Week 5-6)
+**Goal**: Add controlled analytics collection with rate limit management
+
 **Deliverables**:
-- Platform-specific analytics collection for all 6 platforms
-- Rate limit controls and monitoring
-- Unified analytics storage schema
-- CLI commands for analytics operations
-- Automated daily analytics collection
+- ✅ Rate-limited analytics fetching for all platforms
+- ✅ Unified analytics storage and aggregation
+- ✅ Analytics CLI commands
+- ✅ Background analytics collection jobs
 
-**Key Considerations**:
-- 24-72 hour data delay after posting
-- Daily batch collection (not real-time)
-- Platform-specific rate limits and batch sizes
-- JSON storage for flexible metrics schema
-- Support for all platform-specific metrics (views, engagement, demographics, etc.)
+**Key Files to Create**:
+- `src/analytics/collector.py` - Platform analytics fetching
+- `src/analytics/aggregator.py` - Data processing and storage
+- `src/analytics/rate_limiter.py` - API rate limit management
+- Database tables for analytics data
 
-### Phase 4: Phase-03 Integration & API
-**Goal**: Connect distribution backend to web dashboard with full API support
+**Testing Commands**:
+```bash
+# Fetch analytics for specific post
+pellacia-dist analytics fetch --post-id <id> --platform youtube
+
+# Run daily analytics collection
+pellacia-dist analytics collect-daily
+```
+
+### 🌐 Phase 5: Phase-03 Integration (Week 6-7)
+**Goal**: Connect to web dashboard with REST API
+
 **Deliverables**:
-- REST API endpoints for all operations
-- React dashboard component integration
-- Analytics visualization and reporting
-- Real-time status updates
-- Complete API documentation
+- ✅ FastAPI REST endpoints
+- ✅ Pydantic data models
+- ✅ API documentation
+- ✅ Webhook support for real-time updates
 
-**Key Files**:
-- `src/api/endpoints.py` - FastAPI routes
-- `src/api/models.py` - Pydantic data models
-- Frontend components in phase-03
+**Key Files to Create**:
+- `src/api/endpoints.py` - REST API routes
+- `src/api/models.py` - Request/response models
+- `api.py` - FastAPI application
+- API documentation and integration tests
+
+### 🛠️ Phase 6: Manual Intervention System (Week 7-8)
+**Goal**: Handle cases where all automation fails
+
+**Deliverables**:
+- ✅ Manual intervention queue
+- ✅ Export tools for manual uploading
+- ✅ Resolution tracking
+- ✅ Clear instructions generation
+
+**Key Files to Create**:
+- `src/fallback/manual_queue.py` - Manual intervention management
+- CLI commands for manual operations
+
+**Testing Commands**:
+```bash
+# View manual intervention queue
+pellacia-dist manual list
+
+# Export manual upload instructions
+pellacia-dist manual export --id <id>
+
+# Mark as manually resolved
+pellacia-dist manual resolve --id <id> --post-url <url>
+```
 
 ## File Structure
 
@@ -506,5 +644,117 @@ pellacia-dist queue retry --id <uuid>
 - User satisfaction with dashboard integration
 
 ---
+
+---
+
+## Implementation Checklist
+
+### ✅ Pre-Implementation Setup
+- [ ] Create project directory structure (see File Structure section)
+- [ ] Set up Python 3.10+ virtual environment
+- [ ] Install all dependencies from requirements.txt
+- [ ] Set up PostgreSQL database and create schema
+- [ ] Configure platform credentials in config/platforms.json
+- [ ] Set up Telegram bot for alerts (get bot token and chat ID)
+
+### ✅ Phase 1: Infrastructure Foundation
+- [ ] Implement `src/infrastructure/free_vpn_manager.py` with 6 VPN connections
+- [ ] Create `src/fallback/browser_uploader.py` with Playwright integration
+- [ ] Build `src/fallback/session_manager.py` for browser session persistence
+- [ ] Implement `src/monitoring/alert_system.py` with Telegram alerts
+- [ ] Create `src/monitoring/health_dashboard.py` terminal UI
+- [ ] Set up basic CLI framework in `main.py`
+- [ ] Test VPN connectivity: `pellacia-dist test vpn`
+- [ ] Test browser automation: `pellacia-dist test browser --platform tiktok`
+- [ ] Verify Telegram alerts work
+
+### ✅ Phase 2: Core Upload Engine
+- [ ] Build `src/core/resilient_uploader.py` with 5-layer fallback strategy
+- [ ] Implement TikTok upload with VPN + browser fallback
+- [ ] Create platform modules for all 6 platforms
+- [ ] Add comprehensive error handling and retry logic
+- [ ] Test single platform uploads
+- [ ] Test multi-platform concurrent uploads
+- [ ] Verify VPN fallback works for TikTok
+
+### ✅ Phase 3: Scheduling & Priority System
+- [ ] Implement `src/scheduling/priority_queue.py` with breaking news support
+- [ ] Create `src/scheduling/posting_throttler.py` for 30-45 min intervals
+- [ ] Set up APScheduler integration
+- [ ] Test breaking news interruption
+- [ ] Test normal scheduling queue
+- [ ] Verify throttling prevents overposting
+
+### ✅ Phase 4: Analytics System
+- [ ] Build `src/analytics/collector.py` for platform metrics
+- [ ] Create `src/analytics/rate_limiter.py` for API limits
+- [ ] Implement analytics storage and aggregation
+- [ ] Add analytics CLI commands
+- [ ] Test controlled analytics fetching
+- [ ] Verify rate limit compliance
+
+### ✅ Phase 5: Phase-03 Integration
+- [ ] Create FastAPI application with endpoints
+- [ ] Implement Pydantic models for requests/responses
+- [ ] Add webhook support for real-time updates
+- [ ] Generate API documentation
+- [ ] Test integration with Phase-03 dashboard
+
+### ✅ Phase 6: Manual Intervention System
+- [ ] Build manual intervention queue
+- [ ] Create export tools for manual uploads
+- [ ] Add resolution tracking
+- [ ] Generate clear manual instructions
+- [ ] Test full failure recovery workflow
+
+### ✅ Production Readiness
+- [ ] Comprehensive test suite (unit + integration)
+- [ ] Error monitoring and logging
+- [ ] Performance optimization
+- [ ] Security audit (credential handling)
+- [ ] Documentation completion
+- [ ] Deployment scripts
+
+### 📋 Key Testing Scenarios
+- [ ] **VPN Failure**: Disconnect VPN mid-upload → verify browser fallback
+- [ ] **API Rate Limit**: Hit limits → verify graceful handling
+- [ ] **Breaking News**: Test interruption of normal queue
+- [ ] **Platform Down**: Simulate platform outage → verify fallback activation
+- [ ] **Concurrent Uploads**: Test 6-platform simultaneous posting
+- [ ] **Manual Intervention**: Force all fallbacks to fail → verify manual queue
+
+### 🚨 Critical Success Metrics
+- [ ] TikTok uploads work reliably via VPN + browser automation
+- [ ] All 6 platforms can be posted to simultaneously
+- [ ] Breaking news posts interrupt normal operations
+- [ ] Telegram alerts fire within 30 seconds of failures
+- [ ] 30-minute minimum spacing enforced between posts
+- [ ] Zero data loss during system restarts
+- [ ] All posts eventually published (manual fallback works)
+
+---
+
+## Claude Implementation Notes
+
+### 🎯 Development Priorities
+1. **Start with infrastructure** (VPN, browser, alerts) - these are used by everything else
+2. **TikTok first** - most complex due to VPN requirements
+3. **Test early, test often** - each component needs immediate validation
+4. **Build resilience in** - expect failures and design around them
+
+### 🛠️ Key Technical Decisions
+- **Free VPNs are unreliable** - design for frequent failures with redundancy
+- **Browser automation is primary fallback** - not a "last resort"
+- **Telegram alerts are critical** - instant mobile notifications for failures
+- **Conservative posting prevents bans** - most valuable asset is platform accounts
+
+### 📞 When to Ask for Clarification
+- Platform API behavior questions
+- Specific error handling scenarios
+- Database schema optimization
+- Performance bottlenecks
+
+### 🎉 Success Definition
+System can reliably post to all 6 platforms, handle failures gracefully, prioritize breaking news, and keep user informed via instant alerts - all while staying within free VPN constraints.
 
 This development guide provides the complete specification for implementing the Phase 06 Distribution Backend. Use this document to guide the development process, ensuring all requirements and technical details are properly addressed.
